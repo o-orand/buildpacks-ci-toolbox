@@ -1,0 +1,595 @@
+resource_types:
+  - name: slack-notification
+    type: docker-image
+    source:
+      repository: cfcommunity/slack-notification-resource
+
+resources:
+  - name: buildpacks-ci-cf
+    type: git
+    source:
+      branch: master
+      uri: {{buildpacks-ci-git-https-uri}}
+
+  - name: buildpacks-ci-target
+    type: git
+    source:
+      private_key: {{buildpacks-ci-target-private-key}}
+      uri: {{buildpacks-ci-target-git-uri}}
+
+  - name: buildpacks-ci-sync
+    type: git
+    source:
+      private_key: {{buildpacks-ci-target-private-key}}
+      uri: {{buildpacks-ci-target-git-uri}}
+      branch: master
+
+  - name: buildpacks-ci-binary-builds-cf
+    type: git
+    source:
+      branch: binary-builds
+      uri: {{buildpacks-ci-git-https-uri}}
+
+  - name: buildpacks-ci-binary-builds-target
+    type: git
+    source:
+      private_key: {{buildpacks-ci-target-private-key}}
+      uri: {{buildpacks-ci-target-git-uri}}
+      branch: binary-builds
+
+
+  - name: buildpacks-ci-binary-builds-sync
+    type: git
+    source:
+      private_key: {{buildpacks-ci-target-private-key}}
+      uri: {{buildpacks-ci-target-git-uri}}
+      branch: binary-builds
+
+#### Machete ####
+  - name: machete-cf
+    type: git
+    source:
+      private_key: {{machete-target-private-key}}
+      uri: {{machete-git-uri}}
+      branch: master
+
+  - name: machete-target
+    type: git
+    source:
+      private_key: {{machete-target-private-key}}
+      uri: {{machete-target-git-uri}}
+      branch: master
+
+  - name: machete-sync
+    type: git
+    source:
+      private_key: {{machete-target-private-key}}
+      uri: {{machete-target-git-uri}}
+      branch: master
+
+#### Binary-Builder ####
+  - name: binary-builder-cf
+    type: git
+    source:
+      private_key: {{binary-builder-target-private-key}}
+      uri: {{binary-builder-git-uri}}
+      branch: master
+
+  - name: binary-builder-target
+    type: git
+    source:
+      private_key: {{binary-builder-target-private-key}}
+      uri: {{binary-builder-target-git-uri}}
+      branch: master
+
+  - name: binary-builder-sync
+    type: git
+    source:
+      private_key: {{binary-builder-target-private-key}}
+      uri: {{binary-builder-target-git-uri}}
+      branch: master
+
+#### Php-Buildpack ####
+  - name: php-buildpack-cf
+    type: git
+    source:
+      private_key: {{php-buildpack-target-private-key}}
+      uri: {{php-buildpack-git-uri}}
+      branch: master
+
+  - name: php-buildpack-target
+    type: git
+    source:
+      private_key: {{php-buildpack-target-private-key}}
+      uri: {{php-buildpack-target-git-uri}}
+      branch: master
+
+  - name: php-buildpack-sync
+    type: git
+    source:
+      private_key: {{php-buildpack-target-private-key}}
+      uri: {{php-buildpack-target-git-uri}}
+      branch: master
+
+
+  - name: php-buildpack-develop-cf
+    type: git
+    source:
+      private_key: {{php-buildpack-target-private-key}}
+      uri: {{php-buildpack-git-uri}}
+      branch: develop
+
+  - name: php-buildpack-develop-target
+    type: git
+    source:
+      private_key: {{php-buildpack-target-private-key}}
+      uri: {{php-buildpack-target-git-uri}}
+      branch: develop
+
+  - name: php-buildpack-develop-sync
+    type: git
+    source:
+      private_key: {{php-buildpack-target-private-key}}
+      uri: {{php-buildpack-target-git-uri}}
+      branch: develop
+
+#### Others ####
+  - name: deployments
+    type: git
+    source:
+      private_key: {{buildpacks-ci-target-private-key}}
+      uri: {{buildpacks-ci-target-git-uri}}
+      branch: {{buildpacks-ci-target-branch}}
+
+  - name: tools
+    type: git
+    source:
+      uri: {{tools-git-uri}}
+
+  - name: slack-alert
+    type: slack-notification
+    source:
+      url: {{slack-webhook}}
+
+#groups:
+#- name: sync
+#  jobs:
+#  - sync-master-buildpack-ci
+#  - sync-binary-builds-buildpack-ci
+#  - sync-master-machete
+#- name: all
+#- name: auto-init
+#  jobs:
+#  - load-cfwebui
+
+jobs:
+- name: sync-master-buildpack-ci
+  plan:
+  - aggregate:
+    - get: buildpacks-ci-cf
+      trigger: true
+      attempts: 3
+    - get: buildpacks-ci-target
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: buildpacks-ci-cf, target: buildpacks-ci-target}
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: concourse/concourse-ci
+      inputs:
+      - name: upstream
+      - name: target
+      params:
+        GH_USER: {{github-username}}
+        GH_USER_EMAIL: {{github-email}}
+      outputs:
+      - name: target-sync
+      run:
+        path: bash
+        args:
+          - -exc
+          - |
+            git config --global user.name "$GH_USER"
+            git config --global user.email "$GH_USER_EMAIL"
+            pushd upstream
+              git branch
+             popd
+
+            pushd target
+              git branch
+             popd
+
+            git clone target target-sync
+            pushd target-sync
+              git remote add upstream ../upstream
+              git fetch --all
+              git rebase upstream/master
+            popd
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 3
+  - put: buildpacks-ci-sync
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
+
+
+- name: sync-binary-builds-buildpack-ci
+  plan:
+  - aggregate:
+    - get: buildpacks-ci-binary-builds-cf
+      trigger: true
+      attempts: 3
+    - get: buildpacks-ci-binary-builds-target
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: buildpacks-ci-binary-builds-cf, target: buildpacks-ci-binary-builds-target}
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: concourse/concourse-ci
+      inputs:
+      - name: upstream
+      - name: target
+      outputs:
+      - name: target-sync
+      params:
+        GH_USER: {{github-username}}
+        GH_USER_EMAIL: {{github-email}}
+      run:
+        path: bash
+        args:
+          - -exc
+          - |
+            git config --global user.name "$GH_USER"
+            git config --global user.email "$GH_USER_EMAIL"
+            pushd target
+              git branch
+             popd
+
+            pushd upstream
+              git branch
+             popd
+
+            git clone target target-sync
+            pushd target-sync
+              git remote add upstream ../upstream
+              git fetch --all
+              git rebase upstream/binary-builds
+            popd
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize binary-builds [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 4
+  - put: buildpacks-ci-binary-builds-sync
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push binary-builds [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized binary-builds [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
+
+
+- name: sync-master-machete
+  plan:
+  - aggregate:
+    - get: machete-cf
+      trigger: true
+      attempts: 3
+    - get: machete-target
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: machete-cf, target: machete-target}
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: concourse/concourse-ci
+      inputs:
+      - name: upstream
+      - name: target
+      params:
+        GH_USER: {{github-username}}
+        GH_USER_EMAIL: {{github-email}}
+      outputs:
+      - name: target-sync
+      run:
+        path: bash
+        args:
+          - -exc
+          - |
+            git config --global user.name "$GH_USER"
+            git config --global user.email "$GH_USER_EMAIL"
+            pushd upstream
+              git branch
+             popd
+
+            pushd target
+              git branch
+             popd
+
+            git clone target target-sync
+            pushd target-sync
+              git remote add upstream ../upstream
+              git fetch --all
+              git rebase upstream/master
+            popd
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize machete master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 3
+  - put: machete-sync
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push machete master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized machete master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
+
+
+- name: sync-master-binary-builder
+  plan:
+  - aggregate:
+    - get: binary-builder-cf
+      trigger: true
+      attempts: 3
+    - get: binary-builder-target
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: binary-builder-cf, target: binary-builder-target}
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: concourse/concourse-ci
+      inputs:
+      - name: upstream
+      - name: target
+      params:
+        GH_USER: {{github-username}}
+        GH_USER_EMAIL: {{github-email}}
+      outputs:
+      - name: target-sync
+      run:
+        path: bash
+        args:
+          - -exc
+          - |
+            git config --global user.name "$GH_USER"
+            git config --global user.email "$GH_USER_EMAIL"
+            pushd upstream
+              git branch
+             popd
+
+            pushd target
+              git branch
+             popd
+
+            git clone target target-sync
+            pushd target-sync
+              git remote add upstream ../upstream
+              git fetch --all
+              git rebase upstream/master
+            popd
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize binary-builder master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 3
+  - put: binary-builder-sync
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push binary-builder master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized binary-builder master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
+
+- name: sync-master-php-buildpack
+  plan:
+  - aggregate:
+    - get: php-buildpack-cf
+      trigger: true
+      attempts: 3
+    - get: php-buildpack-target
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: php-buildpack-cf, target: php-buildpack-target}
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: concourse/concourse-ci
+      inputs:
+      - name: upstream
+      - name: target
+      params:
+        GH_USER: {{github-username}}
+        GH_USER_EMAIL: {{github-email}}
+        UPSTREAM_BRANCH: master
+      outputs:
+      - name: target-sync
+      run:
+        path: bash
+        args:
+          - -exc
+          - |
+            git config --global user.name "$GH_USER"
+            git config --global user.email "$GH_USER_EMAIL"
+            pushd upstream
+              git branch
+             popd
+
+            pushd target
+              git branch
+             popd
+
+            git clone target target-sync
+            pushd target-sync
+              git remote add upstream ../upstream
+              git fetch --all
+              git rebase upstream/$UPSTREAM_BRANCH
+            popd
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 3
+  - put: php-buildpack-sync
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
+
+- name: sync-develop-php-buildpack
+  plan:
+  - aggregate:
+    - get: php-buildpack-develop-cf
+      trigger: true
+      attempts: 3
+    - get: php-buildpack-develop-target
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: php-buildpack-develop-cf, target: php-buildpack-develop-target}
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: concourse/concourse-ci
+      inputs:
+      - name: upstream
+      - name: target
+      params:
+        GH_USER: {{github-username}}
+        GH_USER_EMAIL: {{github-email}}
+        UPSTREAM_BRANCH: develop
+      outputs:
+      - name: target-sync
+      run:
+        path: bash
+        args:
+          - -exc
+          - |
+            git config --global user.name "$GH_USER"
+            git config --global user.email "$GH_USER_EMAIL"
+            pushd upstream
+              git branch
+             popd
+
+            pushd target
+              git branch
+             popd
+
+            git clone target target-sync
+            pushd target-sync
+              git remote add upstream ../upstream
+              git fetch --all
+              git rebase upstream/$UPSTREAM_BRANCH
+            popd
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 3
+  - put: php-buildpack-develop-sync
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
