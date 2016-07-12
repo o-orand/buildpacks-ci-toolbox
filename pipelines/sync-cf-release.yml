@@ -1,0 +1,114 @@
+resource_types:
+  - name: slack-notification
+    type: docker-image
+    source:
+      repository: cfcommunity/slack-notification-resource
+
+resources:
+### Cf-Release ###
+  - name: cf-release
+    type: git
+    source:
+      branch: master
+      uri: {{cf-release-git-https-uri}}
+
+  - name: cf-release-target
+    type: git
+    source:
+      private_key: {{cf-release-target-private-key}}
+      uri: {{cf-release-target-git-uri}}
+      branch: master
+
+
+#### Others ####
+  - name: deployments
+    type: git
+    source:
+      private_key: {{buildpacks-ci-target-private-key}}
+      uri: {{buildpacks-ci-target-git-uri}}
+      branch: {{buildpacks-ci-target-branch}}
+
+  - name: tools
+    type: git
+    source:
+      uri: {{tools-git-uri}}
+
+  - name: slack-alert
+    type: slack-notification
+    source:
+      url: {{slack-webhook}}
+
+jobs:
+- name: sync-master-cf-release
+  plan:
+  - aggregate:
+    - get: cf-release
+      trigger: true
+      params: { submodules: none }
+      attempts: 3
+    - get: cf-release-target
+      trigger: false
+      params: { submodules: none }
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: cf-release, target: cf-release-target}
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: concourse/concourse-ci
+      inputs:
+      - name: upstream
+      - name: target
+      params:
+        GH_USER: {{github-username}}
+        GH_USER_EMAIL: {{github-email}}
+      outputs:
+      - name: target-sync
+      run:
+        path: bash
+        args:
+          - -exc
+          - |
+            git config --global user.name "$GH_USER"
+            git config --global user.email "$GH_USER_EMAIL"
+            pushd upstream
+              git branch
+             popd
+
+            pushd target
+              git branch
+             popd
+
+            git clone target target-sync
+            pushd target-sync
+              git remote add upstream ../upstream
+              git fetch --all
+              git rebase upstream/master
+            popd
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 3
+  - put: cf-release-target
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
+
