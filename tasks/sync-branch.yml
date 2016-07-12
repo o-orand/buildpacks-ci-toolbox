@@ -1,0 +1,32 @@
+---
+platform: linux
+image_resource:
+  type: docker-image
+  source:
+    repository: concourse/concourse-ci
+inputs:
+- name: upstream
+- name: target
+outputs:
+- name: target-sync
+run:
+  path: bash
+  args:
+    - -exc
+    - |
+      git config --global user.name "$GH_USER"
+      git config --global user.email "$GH_USER_EMAIL"
+      pushd upstream
+        git branch
+       popd
+
+      pushd target
+        git branch
+       popd
+
+      git clone target target-sync
+      pushd target-sync
+        git remote add upstream ../upstream
+        git fetch --all
+        git rebase upstream/$UPSTREAM_BRANCH
+      popd

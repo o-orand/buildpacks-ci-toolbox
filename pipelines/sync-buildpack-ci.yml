@@ -16,12 +16,6 @@ resources:
     source:
       private_key: {{buildpacks-ci-target-private-key}}
       uri: {{buildpacks-ci-target-git-uri}}
-
-  - name: buildpacks-ci-sync
-    type: git
-    source:
-      private_key: {{buildpacks-ci-target-private-key}}
-      uri: {{buildpacks-ci-target-git-uri}}
       branch: master
 
   - name: buildpacks-ci-binary-builds-cf
@@ -37,13 +31,19 @@ resources:
       uri: {{buildpacks-ci-target-git-uri}}
       branch: binary-builds
 
+  - name: buildpacks-ci-develop-cf
+    type: git
+    source:
+      branch: develop
+      uri: {{buildpacks-ci-git-https-uri}}
 
-  - name: buildpacks-ci-binary-builds-sync
+  - name: buildpacks-ci-develop-target
     type: git
     source:
       private_key: {{buildpacks-ci-target-private-key}}
       uri: {{buildpacks-ci-target-git-uri}}
-      branch: binary-builds
+      branch: develop
+
 
 #### Machete ####
   - name: machete-cf
@@ -54,13 +54,6 @@ resources:
       branch: master
 
   - name: machete-target
-    type: git
-    source:
-      private_key: {{machete-target-private-key}}
-      uri: {{machete-target-git-uri}}
-      branch: master
-
-  - name: machete-sync
     type: git
     source:
       private_key: {{machete-target-private-key}}
@@ -82,12 +75,6 @@ resources:
       uri: {{binary-builder-target-git-uri}}
       branch: master
 
-  - name: binary-builder-sync
-    type: git
-    source:
-      private_key: {{binary-builder-target-private-key}}
-      uri: {{binary-builder-target-git-uri}}
-      branch: master
 
 #### Php-Buildpack ####
   - name: php-buildpack-cf
@@ -104,14 +91,6 @@ resources:
       uri: {{php-buildpack-target-git-uri}}
       branch: master
 
-  - name: php-buildpack-sync
-    type: git
-    source:
-      private_key: {{php-buildpack-target-private-key}}
-      uri: {{php-buildpack-target-git-uri}}
-      branch: master
-
-
   - name: php-buildpack-develop-cf
     type: git
     source:
@@ -120,13 +99,6 @@ resources:
       branch: develop
 
   - name: php-buildpack-develop-target
-    type: git
-    source:
-      private_key: {{php-buildpack-target-private-key}}
-      uri: {{php-buildpack-target-git-uri}}
-      branch: develop
-
-  - name: php-buildpack-develop-sync
     type: git
     source:
       private_key: {{php-buildpack-target-private-key}}
@@ -163,7 +135,7 @@ resources:
 #  - load-cfwebui
 
 jobs:
-- name: sync-master-buildpack-ci
+- name: sync-buildpack-ci-master
   plan:
   - aggregate:
     - get: buildpacks-ci-cf
@@ -217,7 +189,7 @@ jobs:
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
     attempts: 3
-  - put: buildpacks-ci-sync
+  - put: buildpacks-ci-target
     params:
       repository: target-sync
     on_failure:
@@ -235,7 +207,7 @@ jobs:
       username: Concourse
 
 
-- name: sync-binary-builds-buildpack-ci
+- name: sync-buildpack-ci-binary-builds
   plan:
   - aggregate:
     - get: buildpacks-ci-binary-builds-cf
@@ -289,7 +261,7 @@ jobs:
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
     attempts: 4
-  - put: buildpacks-ci-binary-builds-sync
+  - put: buildpacks-ci-binary-builds-target
     params:
       repository: target-sync
     on_failure:
@@ -305,6 +277,79 @@ jobs:
       text: Sucessfully synchronized binary-builds [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
       icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
       username: Concourse
+
+
+- name: sync-buildpack-ci-develop
+  plan:
+  - aggregate:
+    - get: buildpacks-ci-develop-cf
+      trigger: true
+      attempts: 3
+    - get: buildpacks-ci-develop-target
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: buildpacks-ci-develop-cf, target: buildpacks-ci-develop-target}
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: concourse/concourse-ci
+      inputs:
+      - name: upstream
+      - name: target
+      params:
+        GH_USER: {{github-username}}
+        GH_USER_EMAIL: {{github-email}}
+      outputs:
+      - name: target-sync
+      run:
+        path: bash
+        args:
+          - -exc
+          - |
+            git config --global user.name "$GH_USER"
+            git config --global user.email "$GH_USER_EMAIL"
+            pushd upstream
+              git branch
+             popd
+
+            pushd target
+              git branch
+             popd
+
+            git clone target target-sync
+            pushd target-sync
+              git remote add upstream ../upstream
+              git fetch --all
+              git rebase upstream/master
+            popd
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 3
+  - put: buildpacks-ci-develop-target
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
+
 
 
 - name: sync-master-machete
@@ -361,7 +406,7 @@ jobs:
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
     attempts: 3
-  - put: machete-sync
+  - put: machete-target
     params:
       repository: target-sync
     on_failure:
@@ -433,7 +478,7 @@ jobs:
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
     attempts: 3
-  - put: binary-builder-sync
+  - put: binary-builder-target
     params:
       repository: target-sync
     on_failure:
@@ -459,44 +504,16 @@ jobs:
     - get: php-buildpack-target
       trigger: false
       attempts: 3
+    - get: tools
+      trigger: false
+      attempts: 3
   - task: sync-fork
+    file: tools/tasks/sync-branch.yml
     input_mapping: {upstream: php-buildpack-cf, target: php-buildpack-target}
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: concourse/concourse-ci
-      inputs:
-      - name: upstream
-      - name: target
-      params:
-        GH_USER: {{github-username}}
-        GH_USER_EMAIL: {{github-email}}
-        UPSTREAM_BRANCH: master
-      outputs:
-      - name: target-sync
-      run:
-        path: bash
-        args:
-          - -exc
-          - |
-            git config --global user.name "$GH_USER"
-            git config --global user.email "$GH_USER_EMAIL"
-            pushd upstream
-              git branch
-             popd
-
-            pushd target
-              git branch
-             popd
-
-            git clone target target-sync
-            pushd target-sync
-              git remote add upstream ../upstream
-              git fetch --all
-              git rebase upstream/$UPSTREAM_BRANCH
-            popd
+    params:
+      GH_USER: {{github-username}}
+      GH_USER_EMAIL: {{github-email}}
+      UPSTREAM_BRANCH: master
     on_failure:
       put: slack-alert
       params:
@@ -505,7 +522,7 @@ jobs:
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
     attempts: 3
-  - put: php-buildpack-sync
+  - put: php-buildpack-target
     params:
       repository: target-sync
     on_failure:
@@ -577,7 +594,7 @@ jobs:
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
     attempts: 3
-  - put: php-buildpack-develop-sync
+  - put: php-buildpack-develop-target
     params:
       repository: target-sync
     on_failure:
