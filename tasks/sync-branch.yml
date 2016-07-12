@@ -28,5 +28,5 @@ run:
       pushd target-sync
         git remote add upstream ../upstream
         git fetch --all
-        git rebase upstream/$UPSTREAM_BRANCH
+        git pull --rebase upstream $UPSTREAM_BRANCH
       popd
