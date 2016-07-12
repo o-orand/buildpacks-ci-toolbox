@@ -39,7 +39,7 @@ resources:
       url: {{slack-webhook}}
 
 jobs:
-- name: sync-master-cf-release
+- name: sync-cf-release-master
   plan:
   - aggregate:
     - get: cf-release
@@ -50,43 +50,16 @@ jobs:
       trigger: false
       params: { submodules: none }
       attempts: 3
+    - get: tools
+      trigger: false
+      attempts: 3
   - task: sync-fork
     input_mapping: {upstream: cf-release, target: cf-release-target}
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: concourse/concourse-ci
-      inputs:
-      - name: upstream
-      - name: target
-      params:
-        GH_USER: {{github-username}}
-        GH_USER_EMAIL: {{github-email}}
-      outputs:
-      - name: target-sync
-      run:
-        path: bash
-        args:
-          - -exc
-          - |
-            git config --global user.name "$GH_USER"
-            git config --global user.email "$GH_USER_EMAIL"
-            pushd upstream
-              git branch
-             popd
-
-            pushd target
-              git branch
-             popd
-
-            git clone target target-sync
-            pushd target-sync
-              git remote add upstream ../upstream
-              git fetch --all
-              git rebase upstream/master
-            popd
+    file: tools/tasks/sync-branch.yml
+    params:
+      GH_USER: {{github-username}}
+      GH_USER_EMAIL: {{github-email}}
+      UPSTREAM_BRANCH: master
     on_failure:
       put: slack-alert
       params:
