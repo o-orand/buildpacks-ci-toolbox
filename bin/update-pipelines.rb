@@ -16,7 +16,7 @@ def set_pipeline(target_name:,name:, cmd:, load: [])
   puts system(%{bash -c "fly -t #{target_name} set-pipeline \
     -p #{name} \
     -c <(#{cmd}) \
-    -l public-credentials.yml \
+    -l public-config.yml \
     -l private.yml \
     #{load.collect { |l| "-l #{l}" }.join(' ')}
   "})
