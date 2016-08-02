@@ -149,7 +149,7 @@ jobs:
       attempts: 3
   - task: sync-fork
     input_mapping: {upstream: buildpacks-ci-cf, target: buildpacks-ci-target}
-    file: tools/tasks/sync-branch.yml
+    file: tools/tasks/sync-branch-rebase.yml
     params:
       GH_USER: {{github-username}}
       GH_USER_EMAIL: {{github-email}}
@@ -194,7 +194,7 @@ jobs:
       attempts: 3
   - task: sync-fork
     input_mapping: {upstream: buildpacks-ci-binary-builds-cf, target: buildpacks-ci-binary-builds-target}
-    file: tools/tasks/sync-branch.yml
+    file: tools/tasks/sync-branch-rebase.yml
     params:
       GH_USER: {{github-username}}
       GH_USER_EMAIL: {{github-email}}
@@ -239,7 +239,7 @@ jobs:
       attempts: 3
   - task: sync-fork
     input_mapping: {upstream: buildpacks-ci-develop-cf, target: buildpacks-ci-develop-target}
-    file: tools/tasks/sync-branch.yml
+    file: tools/tasks/sync-branch-rebase.yml
     params:
       GH_USER: {{github-username}}
       GH_USER_EMAIL: {{github-email}}
@@ -285,7 +285,7 @@ jobs:
       attempts: 3
   - task: sync-fork
     input_mapping: {upstream: machete-cf, target: machete-target}
-    file: tools/tasks/sync-branch.yml
+    file: tools/tasks/sync-branch-rebase.yml
     params:
        GH_USER: {{github-username}}
        GH_USER_EMAIL: {{github-email}}
@@ -330,7 +330,7 @@ jobs:
       attempts: 3
   - task: sync-fork
     input_mapping: {upstream: binary-builder-cf, target: binary-builder-target}
-    file: tools/tasks/sync-branch.yml
+    file: tools/tasks/sync-branch-rebase.yml
     params:
       GH_USER: {{github-username}}
       GH_USER_EMAIL: {{github-email}}
@@ -373,7 +373,7 @@ jobs:
       trigger: false
       attempts: 3
   - task: sync-fork
-    file: tools/tasks/sync-branch.yml
+    file: tools/tasks/sync-branch-rebase.yml
     input_mapping: {upstream: php-buildpack-cf, target: php-buildpack-target}
     params:
       GH_USER: {{github-username}}
@@ -418,7 +418,7 @@ jobs:
       attempts: 3
   - task: sync-fork
     input_mapping: {upstream: php-buildpack-develop-cf, target: php-buildpack-develop-target}
-    file: tools/tasks/sync-branch.yml
+    file: tools/tasks/sync-branch-rebase.yml
     params:
       GH_USER: {{github-username}}
       GH_USER_EMAIL: {{github-email}}

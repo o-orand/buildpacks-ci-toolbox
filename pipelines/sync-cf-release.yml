@@ -55,7 +55,7 @@ jobs:
       attempts: 3
   - task: sync-fork
     input_mapping: {upstream: cf-release, target: cf-release-target}
-    file: tools/tasks/sync-branch.yml
+    file: tools/tasks/sync-branch-rebase.yml
     params:
       GH_USER: {{github-username}}
       GH_USER_EMAIL: {{github-email}}
