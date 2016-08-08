@@ -44,6 +44,12 @@ resources:
       uri: {{buildpacks-ci-target-git-uri}}
       branch: develop
 
+  - name: buildpacks-ci-orange-target
+    type: git
+    source:
+      private_key: {{buildpacks-ci-target-private-key}}
+      uri: {{buildpacks-ci-target-git-uri}}
+      branch: orange-specific
 
 #### Machete ####
   - name: machete-cf
@@ -269,6 +275,50 @@ jobs:
       icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
       username: Concourse
 
+- name: sync-buildpack-ci-orange
+  plan:
+  - aggregate:
+    - get: buildpacks-ci-cf
+      trigger: true
+      attempts: 3
+    - get: buildpacks-ci-orange-target
+      trigger: false
+      attempts: 3
+    - get: tools
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: buildpacks-ci-cf, target: buildpacks-ci-orange-target}
+    file: tools/tasks/sync-branch-rebase.yml
+    params:
+      GH_USER: {{github-username}}
+      GH_USER_EMAIL: {{github-email}}
+      UPSTREAM_BRANCH: orange-specific
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize orange-specific [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 3
+  - put: buildpacks-ci-target
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push orange-specific [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized orange-specific [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
+
 
 
 - name: sync-master-machete
@@ -285,7 +335,7 @@ jobs:
       attempts: 3
   - task: sync-fork
     input_mapping: {upstream: machete-cf, target: machete-target}
-    file: tools/tasks/sync-branch-rebase.yml
+    file: tools/tasks/sync-branch-merge.yml
     params:
        GH_USER: {{github-username}}
        GH_USER_EMAIL: {{github-email}}
@@ -373,7 +423,7 @@ jobs:
       trigger: false
       attempts: 3
   - task: sync-fork
-    file: tools/tasks/sync-branch-rebase.yml
+    file: tools/tasks/sync-branch-merge.yml
     input_mapping: {upstream: php-buildpack-cf, target: php-buildpack-target}
     params:
       GH_USER: {{github-username}}
