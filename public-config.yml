@@ -5,3 +5,15 @@ machete-git-uri: https://github.com/cloudfoundry/machete.git
 binary-builder-git-uri: https://github.com/cloudfoundry/binary-builder.git
 php-buildpack-git-uri: https://github.com/cloudfoundry/php-buildpack.git
 cf-release-git-https-uri: https://github.com/cloudfoundry/cf-release.git
+
+go-buildpack-git-uri: https://github.com/cloudfoundry/go-buildpack.git
+ruby-buildpack-git-uri: https://github.com/cloudfoundry/ruby-buildpack.git
+staticfile-buildpack-git-uri: https://github.com/cloudfoundry/staticfile-buildpack.git
+nodejs-buildpack-git-uri: https://github.com/cloudfoundry/nodejs-buildpack.git
+
+
+
+
+
+
+

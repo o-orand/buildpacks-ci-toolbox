@@ -1,0 +1,337 @@
+resource_types:
+  - name: slack-notification
+    type: docker-image
+    source:
+      repository: cfcommunity/slack-notification-resource
+
+resources:
+
+#### Php-Buildpack ####
+  - name: php-buildpack-cf
+    type: git
+    source:
+      private_key: {{php-buildpack-target-private-key}}
+      uri: {{php-buildpack-git-uri}}
+      branch: master
+
+  - name: php-buildpack-target
+    type: git
+    source:
+      private_key: {{php-buildpack-target-private-key}}
+      uri: {{php-buildpack-target-git-uri}}
+      branch: master
+
+  - name: php-buildpack-develop-cf
+    type: git
+    source:
+      private_key: {{php-buildpack-target-private-key}}
+      uri: {{php-buildpack-git-uri}}
+      branch: develop
+
+  - name: php-buildpack-develop-target
+    type: git
+    source:
+      private_key: {{php-buildpack-target-private-key}}
+      uri: {{php-buildpack-target-git-uri}}
+      branch: develop
+
+#### Go Buildpack ####
+  - name: go-buildpack-cf
+    type: git
+    source:
+      private_key: {{go-buildpack-target-private-key}}
+      uri: {{go-buildpack-git-uri}}
+      branch: master
+
+  - name: go-buildpack-target
+    type: git
+    source:
+      private_key: {{go-buildpack-target-private-key}}
+      uri: {{go-buildpack-target-git-uri}}
+      branch: master
+
+#### Ruby Buildpack ####
+  - name: ruby-buildpack-cf
+    type: git
+    source:
+      private_key: {{ruby-buildpack-target-private-key}}
+      uri: {{ruby-buildpack-git-uri}}
+      branch: master
+
+  - name: ruby-buildpack-target
+    type: git
+    source:
+      private_key: {{ruby-buildpack-target-private-key}}
+      uri: {{ruby-buildpack-target-git-uri}}
+      branch: master
+
+#### Staticfile Buildpack ####
+  - name: staticfile-buildpack-cf
+    type: git
+    source:
+      private_key: {{staticfile-buildpack-target-private-key}}
+      uri: {{staticfile-buildpack-git-uri}}
+      branch: master
+
+  - name: staticfile-buildpack-target
+    type: git
+    source:
+      private_key: {{staticfile-buildpack-target-private-key}}
+      uri: {{staticfile-buildpack-target-git-uri}}
+      branch: master
+
+#### Nodejs Buildpack ####
+  - name: nodejs-buildpack-cf
+    type: git
+    source:
+      private_key: {{nodejs-buildpack-target-private-key}}
+      uri: {{nodejs-buildpack-git-uri}}
+      branch: master
+
+  - name: nodejs-buildpack-target
+    type: git
+    source:
+      private_key: {{nodejs-buildpack-target-private-key}}
+      uri: {{nodejs-buildpack-target-git-uri}}
+      branch: master
+
+#### Others ####
+  - name: deployments
+    type: git
+    source:
+      private_key: {{buildpacks-ci-target-private-key}}
+      uri: {{buildpacks-ci-target-git-uri}}
+      branch: {{buildpacks-ci-target-branch}}
+
+  - name: tools
+    type: git
+    source:
+      uri: {{tools-git-uri}}
+
+  - name: slack-alert
+    type: slack-notification
+    source:
+      url: {{slack-webhook}}
+
+
+jobs:
+- name: sync-master-ruby-buildpack
+  plan:
+  - aggregate:
+    - get: ruby-buildpack-cf
+      trigger: true
+      attempts: 3
+    - get: ruby-buildpack-target
+      trigger: false
+      attempts: 3
+    - get: tools
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: ruby-buildpack-cf, target: ruby-buildpack-target}
+    file: tools/tasks/sync-branch-rebase.yml
+    params:
+      GH_USER: {{github-username}}
+      GH_USER_EMAIL: {{github-email}}
+      UPSTREAM_BRANCH: master
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 4
+  - put: ruby-buildpack-target
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
+
+- name: sync-master-staticfile-buildpack
+  plan:
+  - aggregate:
+    - get: staticfile-buildpack-cf
+      trigger: true
+      attempts: 3
+    - get: staticfile-buildpack-target
+      trigger: false
+      attempts: 3
+    - get: tools
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: staticfile-buildpack-cf, target: staticfile-buildpack-target}
+    file: tools/tasks/sync-branch-rebase.yml
+    params:
+      GH_USER: {{github-username}}
+      GH_USER_EMAIL: {{github-email}}
+      UPSTREAM_BRANCH: master
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 4
+  - put: staticfile-buildpack-target
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
+
+- name: sync-master-go-buildpack
+  plan:
+  - aggregate:
+    - get: go-buildpack-cf
+      trigger: true
+      attempts: 3
+    - get: go-buildpack-target
+      trigger: false
+      attempts: 3
+    - get: tools
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: go-buildpack-cf, target: go-buildpack-target}
+    file: tools/tasks/sync-branch-rebase.yml
+    params:
+      GH_USER: {{github-username}}
+      GH_USER_EMAIL: {{github-email}}
+      UPSTREAM_BRANCH: master
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 4
+  - put: go-buildpack-target
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
+
+
+- name: sync-master-php-buildpack
+  plan:
+  - aggregate:
+    - get: php-buildpack-cf
+      trigger: true
+      attempts: 3
+    - get: php-buildpack-target
+      trigger: false
+      attempts: 3
+    - get: tools
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    file: tools/tasks/sync-branch-merge.yml
+    input_mapping: {upstream: php-buildpack-cf, target: php-buildpack-target}
+    params:
+      GH_USER: {{github-username}}
+      GH_USER_EMAIL: {{github-email}}
+      UPSTREAM_BRANCH: master
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 3
+  - put: php-buildpack-target
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
+
+- name: sync-develop-php-buildpack
+  plan:
+  - aggregate:
+    - get: php-buildpack-develop-cf
+      trigger: true
+      attempts: 3
+    - get: php-buildpack-develop-target
+      trigger: false
+      attempts: 3
+    - get: tools
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: php-buildpack-develop-cf, target: php-buildpack-develop-target}
+    file: tools/tasks/sync-branch-rebase.yml
+    params:
+      GH_USER: {{github-username}}
+      GH_USER_EMAIL: {{github-email}}
+      UPSTREAM_BRANCH: develop
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 3
+  - put: php-buildpack-develop-target
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
