@@ -31,6 +31,19 @@ resources:
       uri: {{buildpacks-ci-target-git-uri}}
       branch: binary-builds
 
+  - name: buildpacks-ci-binary-built-output-cf
+    type: git
+    source:
+      branch: binary-built-output
+      uri: {{buildpacks-ci-git-https-uri}}
+
+  - name: buildpacks-ci-binary-built-output-target
+    type: git
+    source:
+      private_key: {{buildpacks-ci-target-private-key}}
+      uri: {{buildpacks-ci-target-git-uri}}
+      branch: binary-built-output
+
   - name: buildpacks-ci-develop-cf
     type: git
     source:
@@ -319,7 +332,49 @@ jobs:
       icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
       username: Concourse
 
-
+- name: sync-buildpack-ci-binary-built-output
+  plan:
+  - aggregate:
+    - get: buildpacks-ci-binary-built-output-cf
+      trigger: true
+      attempts: 3
+    - get: buildpacks-ci-binary-built-output-target
+      trigger: false
+      attempts: 3
+    - get: tools
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: buildpacks-ci-binary-builds-cf, target: buildpacks-ci-binary-builds-target}
+    file: tools/tasks/sync-branch-rebase.yml
+    params:
+      GH_USER: {{github-username}}
+      GH_USER_EMAIL: {{github-email}}
+      UPSTREAM_BRANCH: binary-built-output
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 4
+  - put: buildpacks-ci-binary-builds-target
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
 
 - name: sync-master-machete
   plan:
