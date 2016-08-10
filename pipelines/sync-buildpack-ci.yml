@@ -240,7 +240,7 @@ jobs:
       attempts: 3
   - task: sync-fork
     input_mapping: {upstream: machete-cf, target: machete-target}
-    file: tools/tasks/sync-branch-merge.yml
+    file: tools/tasks/sync-branch-merge-no-tags.yml
     params:
        GH_USER: {{github-username}}
        GH_USER_EMAIL: {{github-email}}
