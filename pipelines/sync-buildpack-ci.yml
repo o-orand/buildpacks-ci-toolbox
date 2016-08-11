@@ -185,7 +185,7 @@ jobs:
 - name: sync-buildpack-ci-orange-specific
   plan:
   - aggregate:
-    - get: buildpacks-ci-master-target
+    - get: buildpacks-ci-master-cf
       trigger: true
       attempts: 3
     - get: buildpacks-ci-orange-specific-target
@@ -195,12 +195,12 @@ jobs:
       trigger: false
       attempts: 3
   - task: sync-fork
-    input_mapping: {upstream: buildpacks-ci-master-target, target: buildpacks-ci-orange-specific-target}
+    input_mapping: {upstream: buildpacks-ci-master-cf, target: buildpacks-ci-orange-specific-target}
     file: tools/tasks/sync-branch-rebase.yml
     params:
       GH_USER: {{github-username}}
       GH_USER_EMAIL: {{github-email}}
-      UPSTREAM_BRANCH: orange-specific
+      UPSTREAM_BRANCH: master
     on_failure:
       put: slack-alert
       params:
