@@ -71,7 +71,7 @@ resources:
     source:
       uri: {{tools-git-uri}}
 
-  - name: slack-alert
+  - name: failure-alert
     type: slack-notification
     source:
       url: {{slack-webhook}}
@@ -110,7 +110,7 @@ jobs:
       GH_USER_EMAIL: {{github-email}}
       UPSTREAM_BRANCH: <%= branch_name %>
     on_failure:
-      put: slack-alert
+      put: failure-alert
       params:
         channel: {{slack-channel}}
         text: Failed to synchronize $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
@@ -121,18 +121,12 @@ jobs:
     params:
       repository: target-sync
     on_failure:
-      put: slack-alert
+      put: failure-alert
       params:
         channel: {{slack-channel}}
         text: Failed cannot push $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
-  - put: slack-alert
-    params:
-      channel: {{slack-channel}}
-      text: Sucessfully synchronized $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
-      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
-      username: Concourse
 <% end %>
 
 <% %w(master develop binary-built-output).each do |branch_name| %>
@@ -156,7 +150,7 @@ jobs:
       GH_USER_EMAIL: {{github-email}}
       UPSTREAM_BRANCH: <%= branch_name %>
     on_failure:
-      put: slack-alert
+      put: failure-alert
       params:
         channel: {{slack-channel}}
         text: Failed to synchronize $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
@@ -167,18 +161,12 @@ jobs:
     params:
       repository: target-sync
     on_failure:
-      put: slack-alert
+      put: failure-alert
       params:
         channel: {{slack-channel}}
         text: Failed cannot push $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
-  - put: slack-alert
-    params:
-      channel: {{slack-channel}}
-      text: Sucessfully synchronized $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
-      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
-      username: Concourse
 <% end %>
 
 
@@ -202,7 +190,7 @@ jobs:
       GH_USER_EMAIL: {{github-email}}
       UPSTREAM_BRANCH: master
     on_failure:
-      put: slack-alert
+      put: failure-alert
       params:
         channel: {{slack-channel}}
         text: Failed to synchronize orange-specific [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
@@ -212,19 +200,14 @@ jobs:
   - put: buildpacks-ci-orange-specific-target
     params:
       repository: target-sync
+      rebase: false
     on_failure:
-      put: slack-alert
+      put: failure-alert
       params:
         channel: {{slack-channel}}
         text: Failed cannot push orange-specific [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
-  - put: slack-alert
-    params:
-      channel: {{slack-channel}}
-      text: Sucessfully synchronized orange-specific [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
-      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
-      username: Concourse
 
 - name: sync-master-machete
   plan:
@@ -246,7 +229,7 @@ jobs:
        GH_USER_EMAIL: {{github-email}}
        UPSTREAM_BRANCH: master
     on_failure:
-      put: slack-alert
+      put: failure-alert
       params:
         channel: {{slack-channel}}
         text: Failed to synchronize machete master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
@@ -257,19 +240,12 @@ jobs:
     params:
       repository: target-sync
     on_failure:
-      put: slack-alert
+      put: failure-alert
       params:
         channel: {{slack-channel}}
         text: Failed cannot push machete master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
-  - put: slack-alert
-    params:
-      channel: {{slack-channel}}
-      text: Sucessfully synchronized machete master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
-      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
-      username: Concourse
-
 
 - name: sync-master-binary-builder
   plan:
@@ -291,7 +267,7 @@ jobs:
       GH_USER_EMAIL: {{github-email}}
       UPSTREAM_BRANCH: master
     on_failure:
-      put: slack-alert
+      put: failure-alert
       params:
         channel: {{slack-channel}}
         text: Failed to synchronize binary-builder master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
@@ -302,17 +278,10 @@ jobs:
     params:
       repository: target-sync
     on_failure:
-      put: slack-alert
+      put: failure-alert
       params:
         channel: {{slack-channel}}
         text: Failed cannot push binary-builder master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
-  - put: slack-alert
-    params:
-      channel: {{slack-channel}}
-      text: Sucessfully synchronized binary-builder master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
-      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
-      username: Concourse
-
 

@@ -33,7 +33,7 @@ resources:
     source:
       uri: {{tools-git-uri}}
 
-  - name: slack-alert
+  - name: failure-alert
     type: slack-notification
     source:
       url: {{slack-webhook}}
@@ -61,7 +61,7 @@ jobs:
       GH_USER_EMAIL: {{github-email}}
       UPSTREAM_BRANCH: master
     on_failure:
-      put: slack-alert
+      put: failure-alert
       params:
         channel: {{slack-channel}}
         text: Failed to synchronize master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
@@ -72,16 +72,9 @@ jobs:
     params:
       repository: target-sync
     on_failure:
-      put: slack-alert
+      put: failure-alert
       params:
         channel: {{slack-channel}}
         text: Failed cannot push master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
-  - put: slack-alert
-    params:
-      channel: {{slack-channel}}
-      text: Sucessfully synchronized master [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
-      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
-      username: Concourse
-
