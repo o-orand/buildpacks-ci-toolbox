@@ -12,7 +12,9 @@ staticfile-buildpack-git-uri: https://github.com/cloudfoundry/staticfile-buildpa
 nodejs-buildpack-git-uri: https://github.com/cloudfoundry/nodejs-buildpack.git
 
 
-
+stacks-git-uri: https://github.com/cloudfoundry/stacks.git
+stacks-release-git-uri: https://github.com/pivotal-cf-experimental/stacks-release.git
+cflinuxfs2-rootfs-release-git-uri: https://github.com/cloudfoundry/cflinuxfs2-rootfs-release.git
 
 
 

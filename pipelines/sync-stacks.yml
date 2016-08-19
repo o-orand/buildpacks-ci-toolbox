@@ -1,0 +1,95 @@
+resource_types:
+  - name: slack-notification
+    type: docker-image
+    source:
+      repository: cfcommunity/slack-notification-resource
+
+resources:
+
+<% %w(master develop).each do |branch_name| %>
+<% %w(stacks stacks-release cflinuxfs2-rootfs-release).each do |repo| %>
+  - name: <%= repo %>-<%= branch_name %>-cf
+    type: git
+    source:
+#      private_key: {{<%= repo %>-target-private-key}}
+      uri: {{<%= repo %>-git-uri}}
+      branch: <%= branch_name %>
+
+  - name: <%= repo %>-<%= branch_name %>-target
+    type: git
+    source:
+      private_key: {{<%= repo %>-target-private-key}}
+      uri: {{<%= repo %>-target-git-uri}}
+      branch: <%= branch_name %>
+
+<% end %>
+<% end %>
+
+#### Others ####
+  - name: deployments
+    type: git
+    source:
+      private_key: {{buildpacks-ci-target-private-key}}
+      uri: {{buildpacks-ci-target-git-uri}}
+      branch: {{buildpacks-ci-target-branch}}
+
+  - name: tools
+    type: git
+    source:
+      uri: {{tools-git-uri}}
+
+  - name: slack-alert
+    type: slack-notification
+    source:
+      url: {{slack-webhook}}
+
+
+jobs:
+
+<% %w(master).each do |branch_name| %>
+<% %w(stacks stacks-release cflinuxfs2-rootfs-release).each do |repo| %>
+- name: sync-<%= branch_name %>-<%= repo %>-buildpack
+  plan:
+  - aggregate:
+    - get: <%= repo %>-<%= branch_name %>-cf
+      trigger: true
+      attempts: 3
+    - get: <%= repo %>-<%= branch_name %>-target
+      trigger: false
+      attempts: 3
+    - get: tools
+      trigger: false
+      attempts: 3
+  - task: sync-fork
+    input_mapping: {upstream: <%= repo %>-<%= branch_name %>-cf, target: <%= repo %>-<%= branch_name %>-target}
+    file: tools/tasks/sync-branch-merge.yml
+    params:
+      GH_USER: {{github-username}}
+      GH_USER_EMAIL: {{github-email}}
+      UPSTREAM_BRANCH: <%= branch_name %>
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed to synchronize $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+    attempts: 4
+  - put: <%= repo %>-<%= branch_name %>-target
+    params:
+      repository: target-sync
+    on_failure:
+      put: slack-alert
+      params:
+        channel: {{slack-channel}}
+        text: Failed cannot push $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+        username: Concourse
+  - put: slack-alert
+    params:
+      channel: {{slack-channel}}
+      text: Sucessfully synchronized $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+      username: Concourse
+<% end %>
+<% end %>
