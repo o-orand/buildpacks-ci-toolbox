@@ -104,7 +104,7 @@ jobs:
       attempts: 3
   - task: sync-fork
     input_mapping: {upstream: buildpacks-ci-<%= branch_name %>-cf, target: buildpacks-ci-<%= branch_name %>-target}
-    file: tools/tasks/sync-branch-merge.yml
+    file: tools/tasks/sync-branch-merge-no-tags.yml
     params:
       GH_USER: {{github-username}}
       GH_USER_EMAIL: {{github-email}}
@@ -193,7 +193,7 @@ jobs:
       put: failure-alert
       params:
         channel: {{slack-channel}}
-        text: Failed to synchronize orange-specific [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        text: Failed to synchronize $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
     attempts: 3
@@ -205,7 +205,7 @@ jobs:
       put: failure-alert
       params:
         channel: {{slack-channel}}
-        text: Failed cannot push orange-specific [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
+        text: Failed cannot push $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
         icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
         username: Concourse
 

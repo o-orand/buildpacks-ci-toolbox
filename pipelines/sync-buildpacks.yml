@@ -6,27 +6,11 @@ resource_types:
 
 resources:
 
-#### Php-Buildpack ####
-#  - name: php-buildpack-develop-cf
-#    type: git
-#    source:
-#      private_key: {{php-buildpack-target-private-key}}
-#      uri: {{php-buildpack-git-uri}}
-#      branch: develop
-#
-#  - name: php-buildpack-develop-target
-#    type: git
-#    source:
-#      private_key: {{php-buildpack-target-private-key}}
-#      uri: {{php-buildpack-target-git-uri}}
-#      branch: develop
-
 <% %w(master develop).each do |branch_name| %>
 <% %w(nodejs staticfile ruby go php).each do |language| %>
   - name: <%= language %>-buildpack-<%= branch_name %>-cf
     type: git
     source:
-#      private_key: {{<%= language %>-buildpack-target-private-key}}
       uri: {{<%= language %>-buildpack-git-uri}}
       branch: <%= branch_name %>
 
@@ -77,7 +61,7 @@ jobs:
       attempts: 3
   - task: sync-fork
     input_mapping: {upstream: <%= language %>-buildpack-<%= branch_name %>-cf, target: <%= language %>-buildpack-<%= branch_name %>-target}
-    file: tools/tasks/sync-branch-merge.yml
+    file: tools/tasks/sync-branch-merge-no-tags.yml
     params:
       GH_USER: {{github-username}}
       GH_USER_EMAIL: {{github-email}}
@@ -102,48 +86,3 @@ jobs:
         username: Concourse
 <% end %>
 <% end %>
-
-
-#- name: sync-develop-php-buildpack
-#  plan:
-#  - aggregate:
-#    - get: php-buildpack-develop-cf
-#      trigger: true
-#      attempts: 3
-#    - get: php-buildpack-develop-target
-#      trigger: false
-#      attempts: 3
-#    - get: tools
-#      trigger: false
-#      attempts: 3
-#  - task: sync-fork
-#    input_mapping: {upstream: php-buildpack-develop-cf, target: php-buildpack-develop-target}
-#    file: tools/tasks/sync-branch-rebase.yml
-#    params:
-#      GH_USER: {{github-username}}
-#      GH_USER_EMAIL: {{github-email}}
-#      UPSTREAM_BRANCH: develop
-#    on_failure:
-#      put: failure-alert
-#      params:
-#        channel: {{slack-channel}}
-#        text: Failed to synchronize $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
-#        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
-#        username: Concourse
-#    attempts: 3
-#  - put: php-buildpack-develop-target
-#    params:
-#      repository: target-sync
-#    on_failure:
-#      put: failure-alert
-#      params:
-#        channel: {{slack-channel}}
-#        text: Failed cannot push $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
-#        icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
-#        username: Concourse
-#  - put: failure-alert
-#    params:
-#      channel: {{slack-channel}}
-#      text: Sucessfully synchronized $BUILD_JOB_NAME [[$BUILD_PIPELINE_NAME]($ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME)].
-#      icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
-#      username: Concourse
