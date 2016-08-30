@@ -7,6 +7,8 @@ flyrc  = YAML.load_file(File.expand_path('~/.flyrc'))
 target_name="concourse-cw"
 target = flyrc['targets'][target_name]
 
+PRIVATE_CREDENTIALS_FILE = ENV['PRIVATE_CREDENTIALS_FILE'] || 'private.yml'
+
 def header(msg)
   print '*' * 10
   puts " #{msg}"
@@ -17,7 +19,7 @@ def set_pipeline(target_name:,name:, cmd:, load: [])
     -p #{name} \
     -c <(#{cmd}) \
     -l public-config.yml \
-    -l private.yml \
+    -l #{PRIVATE_CREDENTIALS_FILE} \
     #{load.collect { |l| "-l #{l}" }.join(' ')}
   "})
 end
